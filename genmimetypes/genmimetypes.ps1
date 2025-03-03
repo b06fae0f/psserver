@@ -20,9 +20,11 @@ try {
     # Get Mime types from each row
     $TBODY.getElementsByTagName("tr") | ForEach-Object -Process {
         $TD = $_.getElementsByTagName("td")
-        $Extension = $TD[0].getElementsByTagName("code")[0].innerText
+        $Extensions = $TD[0].getElementsByTagName("code")
         $MimeType = $TD[2].getElementsByTagName("code")[0].innerText
-        $MimeTypes[$Extension] = $MimeType
+        $Extensions | ForEach-Object -Process {
+            $MimeTypes[$_.innerText] = $MimeType
+        }
     }
     
     # Save Mime types as a JSON file
