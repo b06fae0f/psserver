@@ -1,3 +1,5 @@
+# Get the most common MIME Types according to Mozilla website and save them in a JSON file.
+
 # Output JSON file
 $Outfile = ".\mimetypes.json"
 
