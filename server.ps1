@@ -1,4 +1,5 @@
 # Simple HTTP Server in PowerShell
+Add-Type -AssemblyName System.Web
 
 $port = 8080
 
@@ -43,6 +44,7 @@ $httphandler = {
         "uuencoded" = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAWBAMAAAAyb6E1AAAAD1BMVEX////M//+ZmZkzMzMAAABVsTOVAAAAAnRSTlP/AOW3MEoAAAABYktHRACIBR1IAAAAV0lEQVQIW6XOgQkAIQwDwPB1ga4gHUDREbr/TF9jnw7wAeEIoYjFTFXFQESENHcXzEMnhTwDRH3btvfObYuXF/B0yxYgnYTlhY/VWhE1+M3Vb+KT6hl9AccsFtxw1Z74AAAAVnRFWHRjb21tZW50AFRoaXMgYXJ0IGlzIGluIHRoZSBwdWJsaWMgZG9tYWluLiBLZXZpbiBIdWdoZXMsIGtldmluaEBlaXQuY29tLCBTZXB0ZW1iZXIgMTk5NXb275wAAAAASUVORK5CYII="
         "script" = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAWBAMAAAAyb6E1AAAAD1BMVEX////M//+ZmZkzMzMAAABVsTOVAAAAAnRSTlP/AOW3MEoAAAABYktHRACIBR1IAAAAUUlEQVQIW62OwQkAMQgEl5gGbCFcAQmxAB/2X9N5URDunXmNAwtiHxYzY8IhKsUqpaOqrp4xuxm6iGT107KijScrEBr89JuY3q+lewT+JFvCL93uFjw90q48AAAAVnRFWHRjb21tZW50AFRoaXMgYXJ0IGlzIGluIHRoZSBwdWJsaWMgZG9tYWluLiBLZXZpbiBIdWdoZXMsIGtldmluaEBlaXQuY29tLCBTZXB0ZW1iZXIgMTk5NXb275wAAAAASUVORK5CYII="
         "tex" = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAWBAMAAAAyb6E1AAAAD1BMVEX////M//+ZmZkzMzMAAABVsTOVAAAAAnRSTlP/AOW3MEoAAAABYktHRACIBR1IAAAAZUlEQVQIW22OwQ3AIAzETg0LZIOqYgAQDMAj+8/UCzQtj/plHQaBNqmqigIiEmqC6mpEIJ9yXkHqvVOznUg8mcEAjitTx6Biqa+AK9iGLlytiIWSCNJ7bVu3dnvhV9u14CfVHvQGpoAYDqEpl2MAAABWdEVYdGNvbW1lbnQAVGhpcyBhcnQgaXMgaW4gdGhlIHB1YmxpYyBkb21haW4uIEtldmluIEh1Z2hlcywga2V2aW5oQGVpdC5jb20sIFNlcHRlbWJlciAxOTk1dvbvnAAAAABJRU5ErkJggg=="
+        "hand.right" = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAWBAMAAAAyb6E1AAAAD1BMVEX/////zJnM//+ZZjMAAADVJCiiAAAAA3RSTlP//wDXyg1BAAAAAWJLR0QAiAUdSAAAAGVJREFUCJmNj7ENQzEUAlnh5DcB+gtY9gJ+Yf+Z0lhpUiRUV5wEyJ/oD0xy8QHatvUcIElaATbAFnBgrLUFNakkLSgGtK2qF8zVtliTSdlWAWNs29pc1QpXtXyYt9gPY/XXsh8v3lBPHk0chYuZAAAAVnRFWHRjb21tZW50AFRoaXMgYXJ0IGlzIGluIHRoZSBwdWJsaWMgZG9tYWluLiBLZXZpbiBIdWdoZXMsIGtldmluaEBlaXQuY29tLCBTZXB0ZW1iZXIgMTk5NXb275wAAAAASUVORK5CYII="
     }
 
     # List of common MIME Types 
@@ -127,14 +129,22 @@ $httphandler = {
         ".zip" = "application/zip"
     }
 
-    # Get icon for file extension 
+    # Get icon for file item
     function GetItemIcon {
-        param($Extension)
-        
-        $Mimetype = $MIMETYPES[$Extension]
+        param([System.IO.FileSystemInfo]$Item)
 
-        if ($Extension -in ".html", ".shtml", ".htm", ".pdf") {
+        if ($Item.PSIsContainer) {
+            return $ICONS["folder"]
+        }
+
+        if ($Item.Extension -in ".html", ".shtml", ".htm", ".pdf") {
             return $ICONS["layout"]
+        }
+
+        $Mimetype = $MIMETYPES[$Item.Extension]
+
+        if(-not $Mimetype) {
+            $Mimetype = [System.Web.MimeMapping]::GetMimeMapping($Item.Name)
         }
 
         switch -Wildcard ($Mimetype) {
@@ -144,38 +154,38 @@ $httphandler = {
             "video/*" { return $ICONS["video"] }
         }
 
-        if ($Extension -in "") {
-            return $ICONS["blank"]
-        } elseif ($Extension -in ".tex") {
+        if ($Item.Extension -in ".tex") {
             return $ICONS["tex"]
-        } elseif ($Extension -in ".md") {
+        } elseif (($Item.Extension -in ".md") -or ($Item.Name -eq "README")) {
             return $ICONS["hand.right"]
-        } elseif ($Extension -in ".hqx") {
+        } elseif ($Item.Extension -in ".hqx") {
             return $ICONS["binhex"]
-        } elseif ($Extension -in ".tar") {
+        } elseif ($Item.Extension -in ".tar") {
             return $ICONS["tar"]
-        } elseif ($Extension -in ".txt") {
+        } elseif ($Item.Extension -in ".txt") {
             return $ICONS["text"]
-        } elseif ($Extension -in ".c") {
+        } elseif ($Item.Extension -in ".c") {
             return $ICONS["c"]
-        } elseif ($Extension -in ".for") {
+        } elseif ($Item.Extension -in ".for") {
             return $ICONS["f"]
-        } elseif ($Extension -in ".dvi") {
+        } elseif ($Item.Extension -in ".dvi") {
             return $ICONS["dvi"]
-        } elseif ($Extension -in ".uu") {
+        } elseif ($Item.Extension -in ".uu") {
             return $ICONS["uuencoded"]
-        } elseif ($Extension -in ".pl", "py") {
+        } elseif ($Item.Extension -in ".pl", "py") {
             return $ICONS["p"]
-        } elseif ($Extension -in ".bin", ".exe") {
+        } elseif ($Item.Extension -in ".bin", ".exe") {
             return $ICONS["binary"]
-        } elseif ($Extension -in ".ps", ".ai", ".eps") {
+        } elseif ($Item.Extension -in ".ps", ".ai", ".eps") {
             return $ICONS["a"]
-        } elseif ($Extension -in ".wrl", ".wrl.gz", ".vrml", ".vrm", ".iv") {
+        } elseif ($Item.Extension -in ".wrl", ".wrl.gz", ".vrml", ".vrm", ".iv") {
             return $ICONS["world"]
-        } elseif ($Extension -in ".conf", ".sh", ".shar", ".csh", ".ksh", ".tcl") {
+        } elseif ($Item.Extension -in ".conf", ".sh", ".shar", ".csh", ".ksh", ".tcl") {
             return $ICONS["script"]
-        } elseif ($Extension -in ".Z", ".z", ".zip", ".7z", ".bz", "bz2", ".rar", ".gz", ".tgz", ".epub") {
+        } elseif ($Item.Extension -in ".Z", ".z", ".zip", ".7z", ".bz", "bz2", ".rar", ".gz", ".tgz", ".epub") {
             return $ICONS["compressed"]
+        } elseif ($Item.Extension -in "") {
+            return $ICONS["blank"]
         }
 
         return $ICONS["unknown"]
@@ -260,7 +270,7 @@ $httphandler = {
             "
             Get-ChildItem -Path ("." + $Directory) | Sort-Object -Property $Properties | ForEach-Object -Process {
             "<tr>
-                <td valign=`"top`"><img src=`"$(if ($_.PSIsContainer) { $ICONS["folder"] } else { GetItemIcon -Extension $_.Extension })`" valign=`"middle`" align=`"left`" /></td>
+                <td valign=`"top`"><img src=`"$((GetItemIcon -Item $_))`" valign=`"middle`" align=`"left`" /></td>
                 <td><a href=`"$([URI]::EscapeUriString($_.Name))$(if ($_.PSIsContainer) {'/'})`">$($_.Name)</a></td>
                 <td>$($_.LastWriteTime)</td>
                 <td align=`"right`">$(
