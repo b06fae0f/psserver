@@ -29,6 +29,7 @@ $MimeTypes = @{
 	".tif" = "image/tiff"
 	".js" = "text/javascript"
 	".html" = "text/html"
+	".pshtml" = "text/html"
 	".txt" = "text/plain"
 	".tar" = "application/x-tar"
 	".ogx" = "application/ogg"
@@ -111,7 +112,7 @@ function TemplateHtml {
 		New-Variable -Name "$key" -Value $data[$key]
 	}
 	
-	$tpl = Get-Content "$root\$template" -Raw -Encoding utf8
+	$tpl = [System.IO.File]::ReadAllText("$root\$template", [System.Text.Encoding]::UTF8)
 	$tpl = $tpl.Replace('"', '`"')
 	Invoke-Expression "`"$tpl`""
 }
@@ -172,7 +173,7 @@ function DirectoryIndex {
 		$properties.Descending = $true 
 	}
 
-	"<!DOCTYPE html>
+        "<!DOCTYPE html>
 <html>
     <head>
         <title>Index of $([System.Net.WebUtility]::HtmlEncode($directory))</title>
@@ -240,38 +241,48 @@ function HandleRequest {
 	$response.StatusCode = 200
 	$response.ContentType = "text/html; charset=UTF-8"
 
-	switch -RegEx ($request.Url.AbsolutePath.TrimEnd("/")) {
-		default {
-			try {
-				$path = $request.RawUrl.Split("?")[0].TrimEnd("/")
-				$path = $path.Replace("+", "%20")
-				$path = [URI]::UnescapeDataString($path)
-				$path = $root + $path.Replace("/", "\") 
-				$item = Get-Item $path -ErrorAction Stop
-				if ($item.PSIsContainer) {
-					if (Test-Path ($path + "/index.html") -Type Leaf) {
-						[System.IO.File]::ReadAllBytes($path + "/index.html")						
-					} else {
-						if (-not $request.Url.AbsolutePath.EndsWith("/")) {
-							$response.Redirect($request.Url.AbsolutePath + '/')
-							break
-						}
-						DirectoryIndex -Request $request
-					}
+	if (Test-Path ".\routes.ps1") {
+		. ".\routes.ps1"
+	} else {
+		$RouteNotFound = $true
+	}
+
+	if ($RouteNotFound) {
+		try {
+			$path = $request.RawUrl.Split("?")[0].TrimEnd("/")
+			$path = $path.Replace("+", "%20")
+			$path = [URI]::UnescapeDataString($path)
+			$path = $root + $path.Replace("/", "\") 
+			$item = Get-Item $path -ErrorAction Stop
+			if ($item.PSIsContainer) {
+				if (Test-Path ($path + "/index.html") -Type Leaf) {
+					[System.IO.File]::ReadAllBytes($path + "/index.html")						
 				} else {
-					if (-not ($response.ContentType = $MimeTypes[$item.Extension])) {
-						if (-not ($response.ContentType = [System.Web.MimeMapping]::GetMimeMapping($item.Name))) {
-							$response.ContentType = "application/octet-stream"
-						}
+					if (-not $request.Url.AbsolutePath.EndsWith("/")) {
+						$response.Redirect($request.Url.AbsolutePath + '/')
+						break
 					}
-					if ($response.ContentType -match "^(text\/.+)|(application\/(.+?\+)?(json|xml))$") {
-						$response.ContentType += "; charset=UTF-8"
+					DirectoryIndex -Request $request
+				}
+			} else {
+				if (-not ($response.ContentType = $MimeTypes[$item.Extension])) {
+					if (-not ($response.ContentType = [System.Web.MimeMapping]::GetMimeMapping($item.Name))) {
+						$response.ContentType = "application/octet-stream"
 					}
+				}
+				if ($response.ContentType -match "^(text\/.+)|(application\/(.+?\+)?(json|xml))$") {
+					$response.ContentType += "; charset=UTF-8"
+				}
+				if ($item.Extension -eq ".pshtml") {
+					$tpl = [System.IO.File]::ReadAllText($item, [System.Text.Encoding]::UTF8)
+					$tpl = $tpl.Replace('"', '`"')
+					Invoke-Expression "`"$tpl`""
+				} else {
 					[System.IO.File]::ReadAllBytes($item)
 				}
-			} catch [System.Management.Automation.ItemNotFoundException] {
-				ErrorResponse -StatusCode 404 -Request $request -Response ([ref]$response)
 			}
+		} catch [System.Management.Automation.ItemNotFoundException] {
+			ErrorResponse -StatusCode 404 -Request $request -Response ([ref]$response)
 		}
 	}
 }
