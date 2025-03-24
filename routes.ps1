@@ -6,7 +6,7 @@ switch -RegEx ($request.Url.AbsolutePath.TrimEnd("/")) {
 	"^/sayhi/([^/]+)$" {
 		$name = $Matches[1]
 		$response.ContentType =  "text/plain; charset=UTF-8"
-        "Hi, $name!"
+		"Hi, $name!"
 	}
 	default {
 		$RouteNotFound = $true
