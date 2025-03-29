@@ -1,0 +1,111 @@
+$(
+
+$dir = [System.IO.Path]::GetDirectoryName($request.Url.LocalPath)
+$guestbookpath = "$root$dir\guestbook.csv"
+
+if ($request.HttpMethod -eq "POST") {
+	[System.IO.StreamReader] $sr = [System.IO.StreamReader]::new($request.InputStream, $request.ContentEncoding)
+	[string] $body = $sr.ReadToEnd()
+	$sr.Close()
+
+	[System.Collections.Specialized.NameValueCollection] $data = [System.Web.HttpUtility]::ParseQueryString($body)
+
+	$record = [PSCustomObject]@{
+		name = $data["name"].Trim()
+		email = $data["email"].Trim()
+		message = $data["message"].Trim()
+		created_at = Get-Date -f "yyyy-MM-dd HH:mm:ss"
+	}
+
+	$errors = @{}
+	$errors._count = 0
+	
+	if ($record.name -eq "") {
+		$errors.name = "Name is required"; $errors._count++
+	}
+
+	if ($record.message -eq "") {
+		$errors.message = "Message is required"; $errors._count++
+	}
+
+	
+	if ($record.email -eq "") {
+		$errors.email = "Email is required"; $errors._count++
+	} elseif ($record.email -notmatch "^[\w\.\-]+@[\w\-]+(\.\w+)+$") {
+		$errors.email = "A valid email is required"; $errors._count++
+	}
+
+	if ($errors._count -eq 0) {
+		if (Test-Path $guestbookpath) {
+			$record | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 >> $guestbookpath
+		} else { 
+			$record | ConvertTo-Csv > $guestbookpath
+		}
+
+		$response.Redirect($request.RawUrl)
+	}
+}
+
+)<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Guestbook</title>
+</head>
+<body>
+	<h1>Sign our Guestbook</h1>
+	<div>$(if (Test-Path $guestbookpath) {
+		Import-Csv -Path $guestbookpath -Header "name", "email", "message", "created_at" | Select-Object -Skip 1 | Sort-Object -Property "created_at" -Descending | %{
+			"<table cellpadding=`"4`" cellspacing=`"0`" frame=`"box`">
+				<tr bgcolor=`"skyblue`">
+					<td>
+						<small>
+							<strong>$([System.Net.WebUtility]::HtmlEncode($_.name))</strong> ::
+							<em>&lt;$([System.Net.WebUtility]::HtmlEncode($_.email))&gt;</em> ::
+							<strong>Posted on </strong>
+							<abbr title=`"$($_.created_at)`">$("{0:dddd d MMMM, yyyy}" -f $([DateTime]$_.created_at))</abbr>
+						</small>
+					</td>
+				</tr>
+				</tr>
+					<td>
+						<p>$([System.Net.WebUtility]::HtmlEncode($_.message))</p>
+					</td>
+				</tr>
+			</table><br>"
+		}
+	} else {
+		"<em>Be the first to sign our guestbook.</em>"
+	})
+	</div>
+	<hr>
+	<h2>Please leave a message</h2>
+	<form method="POST">
+		<table>
+			<tr>
+				<td align="right">Name: </td>
+				<td><input type="text" name="name" /></td>
+				<td><font color="red">*$($errors.name)</font></td>
+			</tr>
+			<tr>
+				<td align="right">Email: </td>
+				<td><input type="email" name="email" /></td>
+				<td><font color="red">*$($errors.email)</font></td>
+			</tr>
+			<tr>
+				<td align="right" valign="top">Message: </td>
+				<td><textarea name="message" cols="25" rows="4"></textarea></td>
+				<td><font color="red">*$($errors.message)</font></td>
+			</tr>
+			</tr>
+				<td>&nbsp;</td>
+				<td colspan="2">
+					<button>Submit</button>
+					<button type="reset">Reset</button>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>
