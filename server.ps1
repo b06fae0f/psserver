@@ -173,63 +173,68 @@ function DirectoryIndex {
 		$properties.Descending = $true 
 	}
 
-        "<!DOCTYPE html>
-<html>
-    <head>
-        <title>Index of $([System.Net.WebUtility]::HtmlEncode($directory))</title>
-    </head>
-    <body>
-        <h1>Index of $([System.Net.WebUtility]::HtmlEncode($directory))</h1>
-        <pre><table>
-            <thead>
-                <tr>
-                    <th><a href=`"?C=N&O=$(if ($C -eq "N" -and $O -eq "A") { "D" } else { "A" })`">Name</a></th>
-                    <th><a href=`"?C=M&O=$(if ($C -eq "M" -and $O -eq "A") { "D" } else { "A" })`">Last Modified</a></th>
-                    <th><a href=`"?C=S&O=$(if ($C -eq "S" -and $O -eq "A") { "D" } else { "A" })`">Size</a></th>
-                    <th><a href=`"?C=D&O=$(if ($C -eq "D" -and $O -eq "A") { "D" } else { "A" })`">Description</a></th>
-                </tr>
-                <tr>
-                    <th colspan=`"5`"><hr /></th>
-                </tr>
-            </thead>
-            <tbody>
-            <tr>
-                <td><a href=`"$([System.Net.WebUtility]::HtmlEncode($parentDirectory))`">Parent Directory</a></td>
-                <td>&nbsp;</td>
-                <td align=`"right`">-</td>
-                <td>&nbsp;</td>
-            </tr>
-            $(Get-ChildItem -Path ($root + $directory.Replace("/", "\")) | Sort-Object -Property $properties | ForEach-Object -Process {
-            "<tr>
-                <td><a href=``"$([URI]::EscapeDataString($_.Name))$(if ($_.PSIsContainer) {'/'})``">$([System.Net.WebUtility]::HtmlEncode($_.Name))</a></td>
-                <td>$($_.LastWriteTime)</td>
-                <td align=``"right``">$(
-                    if (-not $_.PSIsContainer) {
-                        if ($_.Length -gt 1kb) { 
-                            GetShortFilesize -Filesize $_.Length 
-                        } else {
-                            $_.Length
-                        }
-                    } else {
-                        '-'
-                    }
-                )</td>
-                <td>$($_.VersionInfo.FileDescription)</td>
-            </tr>
-            "
-            })
-            <tr>
-                <td colspan=`"4`"><hr /></td>
-            </tr>
-            </tbody>
-        </table></pre>
-        <address>$(`"Powershell/{0} ({1}) Server at {2} Port {3}`" -f 
+	[System.Text.StringBuilder] $sb = New-Object System.Text.StringBuilder
+	[void]$sb.AppendLine("<!DOCTYPE html>")
+	[void]$sb.AppendLine("<html lang=`"en-US`">")
+	[void]$sb.AppendLine("`t<head>")
+	[void]$sb.AppendLine("`t`t<meta charset=`"utf-8`" />")
+	[void]$sb.AppendLine($("`t`t<title>Index of {0}</title>" -f [System.Net.WebUtility]::HtmlEncode($directory)))
+	[void]$sb.AppendLine("`t</head>")
+	[void]$sb.AppendLine("`t<body>")
+	[void]$sb.AppendLine($("`t`t<h1>Index of {0}</h1>" -f [System.Net.WebUtility]::HtmlEncode($directory)))
+	[void]$sb.AppendLine("`t`t<pre><table>")
+	[void]$sb.AppendLine("`t`t`t<thead>")
+	[void]$sb.AppendLine("`t`t`t`t<tr>")
+	[void]$sb.AppendLine($("`t`t`t`t`t<th><a href=`"?C=N&O={0}`">Name</a></th>" -f $(if ($C -eq "N" -and $O -eq "A") { "D" } else { "A" })))
+	[void]$sb.AppendLine($("`t`t`t`t`t<th><a href=`"?C=M&O={0}`">Last Modified</a></th>" -f $(if ($C -eq "M" -and $O -eq "A") { "D" } else { "A" })))
+	[void]$sb.AppendLine($("`t`t`t`t`t<th><a href=`"?C=S&O={0}`">Size</a></th>" -f $(if ($C -eq "S" -and $O -eq "A") { "D" } else { "A" })))
+	[void]$sb.AppendLine($("`t`t`t`t`t<th><a href=`"?C=D&O={0}`">Description</a></th>" -f $(if ($C -eq "D" -and $O -eq "A") { "D" } else { "A" })))
+	[void]$sb.AppendLine("`t`t`t`t</tr>")
+	[void]$sb.AppendLine("`t`t`t`t<tr>")
+	[void]$sb.AppendLine("`t`t`t`t`t<th colspan=`"4`"><hr /></th>")
+	[void]$sb.AppendLine("`t`t`t`t</tr>")
+	[void]$sb.AppendLine("`t`t`t</thead>")
+	[void]$sb.AppendLine("`t`t`t<tbody>")
+	[void]$sb.AppendLine("`t`t`t`t<tr>")
+	[void]$sb.AppendLine($("`t`t`t`t`t<td><a href=`"{0}`">Parent Directory</a></td>" -f [System.Net.WebUtility]::HtmlEncode($parentDirectory)))
+	[void]$sb.AppendLine("`t`t`t`t`t<td>&nbsp;</td>")
+	[void]$sb.AppendLine("`t`t`t`t`t<td align=`"right`">-</td>")
+	[void]$sb.AppendLine("`t`t`t`t`t<td>&nbsp;</td>")
+	[void]$sb.AppendLine("`t`t`t`t</tr>")
+	Get-ChildItem -Path ($root + $directory.Replace("/", "\")) | Sort-Object -Property $properties | ForEach-Object -Process {
+		[void]$sb.AppendLine("`t`t`t`t<tr>")
+		[void]$sb.AppendLine($("`t`t`t`t`t<td><a href=`"{0}`">{1}</a></td>" -f 
+			$([URI]::EscapeDataString($_.Name) + $(if ($_.PSIsContainer) {'/'})), 
+			[System.Net.WebUtility]::HtmlEncode($_.Name)))
+		[void]$sb.AppendLine($("`t`t`t`t`t<td>{0}</td>" -f $_.LastWriteTime))
+		[void]$sb.AppendLine($("`t`t`t`t`t<td align=`"right`">{0}</td>" -f $(
+			if (-not $_.PSIsContainer) { 
+				if ($_.Length -gt 1kb) { 
+					GetShortFilesize -Filesize $_.Length 
+				} else { 
+					$_.Length 
+				}
+			} else { 
+				'-' 
+			}
+		)))
+		[void]$sb.AppendLine($("`t`t`t`t`t<td>{0}</td>" -f $_.VersionInfo.FileDescription))
+		[void]$sb.AppendLine("`t`t`t`t</tr>")
+	}
+	[void]$sb.AppendLine("`t`t`t`t<tr>")
+	[void]$sb.AppendLine("`t`t`t`t`t<td colspan=`"4`"><hr /></td>")
+	[void]$sb.AppendLine("`t`t`t`t</tr>")
+	[void]$sb.AppendLine("`t`t`t</tbody>")
+	[void]$sb.AppendLine("`t`t</table></pre>")
+	[void]$sb.AppendLine($("`t`t<address>Powershell/{0} ({1}) Server at {2} Port {3}</address>" -f 
 		$PSVersionTable.PSVersion,
 		[System.Environment]::OSVersion.Platform,
 		$request.Url.Host,
-		$request.Url.Port)</address>
-    </body>
-</html>"
+		$request.Url.Port))
+	[void]$sb.AppendLine("`t</body>")
+	[void]$sb.Append("</html>")
+	
+	return $sb.ToString()
 }
 
 function HandleRequest {
@@ -255,31 +260,32 @@ function HandleRequest {
 			$path = $root + $path.Replace("/", "\") 
 			$item = Get-Item $path -ErrorAction Stop
 			if ($item.PSIsContainer) {
-				if (Test-Path ($path + "/index.html") -Type Leaf) {
-					[System.IO.File]::ReadAllBytes($path + "/index.html")						
+				if (Test-Path "$path\index.pshtml" -Type Leaf) {
+					$item = Get-Item "$path\index.pshtml" -ErrorAction Stop						
+				} elseif (Test-Path "$path\index.html" -Type Leaf) {
+					$item = Get-Item "$path\index.html" -ErrorAction Stop						
 				} else {
 					if (-not $request.Url.AbsolutePath.EndsWith("/")) {
 						$response.Redirect($request.Url.AbsolutePath + '/')
-						break
+						return
 					}
-					DirectoryIndex -Request $request
+					return DirectoryIndex -Request $request
 				}
+			}
+			if (-not ($response.ContentType = $MimeTypes[$item.Extension])) {
+				if (-not ($response.ContentType = [System.Web.MimeMapping]::GetMimeMapping($item.Name))) {
+					$response.ContentType = "application/octet-stream"
+				}
+			}
+			if ($response.ContentType -match "^(text\/.+)|(application\/(.+?\+)?(json|xml))$") {
+				$response.ContentType += "; charset=UTF-8"
+			}
+			if ($item.Extension -eq ".pshtml") {
+				$tpl = [System.IO.File]::ReadAllText($item, [System.Text.Encoding]::UTF8)
+				$tpl = $tpl.Replace('"', '`"')
+				Invoke-Expression "`"$tpl`""
 			} else {
-				if (-not ($response.ContentType = $MimeTypes[$item.Extension])) {
-					if (-not ($response.ContentType = [System.Web.MimeMapping]::GetMimeMapping($item.Name))) {
-						$response.ContentType = "application/octet-stream"
-					}
-				}
-				if ($response.ContentType -match "^(text\/.+)|(application\/(.+?\+)?(json|xml))$") {
-					$response.ContentType += "; charset=UTF-8"
-				}
-				if ($item.Extension -eq ".pshtml") {
-					$tpl = [System.IO.File]::ReadAllText($item, [System.Text.Encoding]::UTF8)
-					$tpl = $tpl.Replace('"', '`"')
-					Invoke-Expression "`"$tpl`""
-				} else {
-					[System.IO.File]::ReadAllBytes($item)
-				}
+				[System.IO.File]::ReadAllBytes($item)
 			}
 		} catch [System.Management.Automation.ItemNotFoundException] {
 			ErrorResponse -StatusCode 404 -Request $request -Response ([ref]$response)
